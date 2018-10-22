@@ -1,32 +1,30 @@
+---
 language: python
+sudo: false
+cache:
+  pip: true
+  directories:
+    - eggs
+    - downloads
 python:
-- 2.7
+  - "2.7"
+matrix:
+  fast_finish: true
 install:
-- mkdir -p buildout-cache/{eggs,downloads}
-- python bootstrap.py -c travis.cfg
-- bin/buildout -c travis.cfg -N -q -t 3
-- curl -O http://saucelabs.com/downloads/Sauce-Connect-latest.zip
-- unzip Sauce-Connect-latest.zip
-- java -jar Sauce-Connect.jar $SAUCE_USERNAME $SAUCE_ACCESS_KEY -i $TRAVIS_JOB_ID
-  -f CONNECTED &
-- JAVA_PID=$!
-- bash -c "while [ ! -f CONNECTED ]; do sleep 2; done"
+  - virtualenv -p `which python` .
+  - bin/pip install -r requirements.txt
+  - bin/buildout -N buildout:download-cache=downloads code-analysis:return-status-codes=True annotate
+  - bin/buildout -N buildout:download-cache=downloads code-analysis:return-status-codes=True
+before_script:
+  - export DISPLAY=:99.0
+  - sh -e /etc/init.d/xvfb start
+  - firefox -v
 script:
-- bin/test
-- ./bin/coverage run ./bin/test -t \!robot
+  - bin/code-analysis
+  - bin/test
 after_success:
-- pip install coveralls
-- coveralls
-after_script:
-- kill $JAVA_PID
-notifications:
-  email:
-  - prive-ged@listes.entrouvert.com
-  - travis-reports@ecreall.com
-env:
-  global:
-  - secure: vUcL3IrMd2Wc2fEnrIR6jD/e1tqnNKiJHKy83EPJM08xLPUghDbx5VoGtfrIur4GN22Ov+nCIH3U6n4BMrsaIj7KGSrOS31tY+UDQHpiu9t03oCfg5e7wHi1/4tn6aVN5UZI1A8a4xJO4S+ziXkM/VbOk2Ln5Petpsck/c2I9ps=
-  - secure: coD6Bmb6pK+dfbUj49Rmi7XNj1QCGYTECmZvpRWeJs2HFaYceb6Bc+yJI2hFc06P6XUwUoPOS52rn6C/JOcOFXdCuwSSXxKBVgXdt9jDTDYRumbhUqEJfLLqd012gfs10cZDE09uH0W+FPpLaD3Ft71JLhf9WzjXwgO6EVxFp/8=
-  - ROBOT_BUILD_NUMBER=travis-$TRAVIS_BUILD_NUMBER
-  - ROBOT_REMOTE_URL=http://$SAUCE_USERNAME:$SAUCE_ACCESS_KEY@ondemand.saucelabs.com:80/wd/hub
-  - ROBOT_DESIRED_CAPABILITIES=tunnel-identifier:$TRAVIS_JOB_ID
+  - bin/createcoverage
+  - bin/pip install coverage
+  - bin/python -m coverage.pickle2json
+  - pip install coveralls
+  - coveralls
